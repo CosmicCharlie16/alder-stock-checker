@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alder Stock Checker</title>
+<style>
+  :root {
+    --bg: #f6f3ee;
+    --surface: #fffdf9;
+    --surface-2: #f1ece4;
+    --border: #e4ddd2;
+    --text: #2b2723;
+    --muted: #7a7166;
+    --accent: #3f6b4f;
+    --accent-soft: #e3ece5;
+    --low: #b5651d;
+    --low-soft: #f7e8d8;
+    --out: #a63d32;
+    --out-soft: #f5dedb;
+    --ok: #3f6b4f;
+    --ok-soft: #e3ece5;
+    --bar: #6f9a7c;
+    --bar-low: #d08a45;
+    --shadow: 0 1px 2px rgba(43, 39, 35, .04), 0 4px 16px rgba(43, 39, 35, .05);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #171512;
+      --surface: #201d19;
+      --surface-2: #2a2621;
+      --border: #3a342d;
+      --text: #ece6dd;
+      --muted: #a2988b;
+      --accent: #8dbb9a;
+      --accent-soft: #24322a;
+      --low: #e3a466;
+      --low-soft: #3a2b1d;
+      --out: #e88a7f;
+      --out-soft: #3b2220;
+      --ok: #8dbb9a;
+      --ok-soft: #24322a;
+      --bar: #7fae8c;
+      --bar-low: #e3a466;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #171512;
+    --surface: #201d19;
+    --surface-2: #2a2621;
+    --border: #3a342d;
+    --text: #ece6dd;
+    --muted: #a2988b;
+    --accent: #8dbb9a;
+    --accent-soft: #24322a;
+    --low: #e3a466;
+    --low-soft: #3a2b1d;
+    --out: #e88a7f;
+    --out-soft: #3b2220;
+    --ok: #8dbb9a;
+    --ok-soft: #24322a;
+    --bar: #7fae8c;
+    --bar-low: #e3a466;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 16px 56px; }
+
+  header.top {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    margin-bottom: 28px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand svg { width: 36px; height: 36px; color: var(--accent); flex: none; }
+  .brand h1 {
+    margin: 0; font-family: ui-serif, Georgia, "Times New Roman", serif;
+    font-size: 26px; font-weight: 600; letter-spacing: -.01em;
+  }
+  .brand p { margin: 0; color: var(--muted); font-size: 13px; }
+  .updated { color: var(--muted); font-size: 13px; text-align: right; }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .stat .value { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat.warn .value { color: var(--low); }
+  .stat.bad .value { color: var(--out); }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .card-head { padding: 16px 18px 12px; }
+  .card-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+  .card-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 0 18px 14px;
+  }
+  .search {
+    position: relative; flex: 1 1 220px; min-width: 0;
+  }
+  .search svg {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    width: 16px; height: 16px; color: var(--muted); pointer-events: none;
+  }
+  .search input {
+    width: 100%; padding: 9px 12px 9px 34px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface-2); color: var(--text); font: inherit;
+    outline: none; transition: border-color .15s, background .15s;
+  }
+  .search input:focus { border-color: var(--accent); background: var(--surface); }
+  select {
+    padding: 9px 30px 9px 12px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface-2); color: var(--text); font: inherit; cursor: pointer;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+    background-size: 5px 5px; background-repeat: no-repeat;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+
+  .toggle {
+    display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+    padding: 7px 12px 7px 8px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--surface-2); font-size: 14px; white-space: nowrap;
+  }
+  .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+  .toggle .track {
+    width: 30px; height: 18px; border-radius: 999px; background: var(--border);
+    position: relative; transition: background .15s; flex: none;
+  }
+  .toggle .track::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--surface); transition: transform .15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  }
+  .toggle input:checked + .track { background: var(--low); }
+  .toggle input:checked + .track::after { transform: translateX(12px); }
+  .toggle input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .toggle .count {
+    background: var(--low-soft); color: var(--low); font-size: 12px; font-weight: 600;
+    padding: 0 7px; border-radius: 999px; font-variant-numeric: tabular-nums;
+  }
+
+  .table-wrap { overflow-x: auto; border-top: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 11px 18px; text-align: left; white-space: nowrap; }
+  th {
+    font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+    background: var(--surface-2); border-bottom: 1px solid var(--border);
+  }
+  th button {
+    all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+  }
+  th button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  th .arrow { opacity: .35; font-size: 10px; }
+  th[aria-sort] .arrow { opacity: 1; color: var(--accent); }
+  th.num, td.num { text-align: right; }
+  th.num button { justify-content: flex-end; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:last-child { border-bottom: 0; }
+  tbody tr:hover { background: var(--surface-2); }
+  .prod { font-weight: 500; }
+  .sku { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .cat {
+    display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+  }
+  td.num { font-variant-numeric: tabular-nums; }
+
+  .stock { display: flex; align-items: center; gap: 10px; }
+  .meter { width: 64px; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; flex: none; }
+  .meter span { display: block; height: 100%; border-radius: inherit; background: var(--ok); }
+  .stock .n { font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; font-weight: 500; }
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; letter-spacing: .02em;
+  }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); }
+  .badge.low { background: var(--low-soft); color: var(--low); }
+  .badge.out { background: var(--out-soft); color: var(--out); }
+  tr.is-low .meter span { background: var(--low); }
+  tr.is-out .meter span { background: var(--out); }
+
+  .empty { padding: 40px 18px; text-align: center; color: var(--muted); }
+  .empty strong { display: block; color: var(--text); font-weight: 600; margin-bottom: 4px; }
+  .foot { padding: 10px 18px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); }
+
+  .chart { padding: 4px 18px 18px; }
+  .bar-row { display: grid; grid-template-columns: 92px minmax(0, 1fr) 40px; gap: 10px; align-items: center; margin: 10px 0; }
+  .bar-row .name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-row .track { display: block; height: 22px; background: var(--surface-2); border-radius: 6px; overflow: hidden; position: relative; cursor: pointer; }
+  .bar-row .fill {
+    display: block; height: 100%; border-radius: 6px; background: var(--bar);
+    transition: width .5s cubic-bezier(.2,.7,.2,1);
+  }
+  .bar-row .fill.has-low { background: linear-gradient(90deg, var(--bar) 0%, var(--bar) calc(100% - 6px), var(--bar-low) calc(100% - 6px)); }
+  .bar-row .val { font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .bar-row.active .name { font-weight: 600; color: var(--accent); }
+  .bar-row.dim { opacity: .45; }
+  .bar-row .bar-btn { all: unset; display: block; cursor: pointer; border-radius: 6px; }
+  .bar-row .bar-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .bar-row .bar-btn:hover .fill { filter: brightness(1.06); }
+  .legend { display: flex; gap: 14px; color: var(--muted); font-size: 12px; padding: 0 18px 16px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+  .side { display: grid; gap: 20px; }
+  .alerts { list-style: none; margin: 0; padding: 0 18px 14px; }
+  .alerts li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
+  .alerts li:first-child { border-top: 0; }
+  .alerts .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+    .side { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding-top: 20px; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .side { grid-template-columns: 1fr; }
+    .updated { display: none; }
+    th, td { padding: 10px 12px; }
+    .col-cat { display: none; }
+    .meter { display: none; }
+    td:first-child { white-space: normal; }
+    .stock .badge { display: none; }
+    tr.is-low .stock .n { color: var(--low); }
+    tr.is-out .stock .n { color: var(--out); }
+    select { flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="16" r="15" fill="currentColor" opacity=".12"/>
+        <path d="M16 6c-4.5 3.2-7 7-7 10.5A7 7 0 0 0 16 23.4a7 7 0 0 0 7-6.9C23 13 20.5 9.2 16 6Z" fill="currentColor"/>
+        <path d="M16 11v15M16 16l-3-2.5M16 19.5l3.2-2.7" stroke="var(--surface)" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <h1>Alder</h1>
+        <p>Home goods · Stock checker</p>
+      </div>
+    </div>
+    <div class="updated" id="updated"></div>
+  </header>
+
+  <section class="stats" aria-label="Summary">
+    <div class="stat"><div class="label">Products</div><div class="value" id="s-products">–</div></div>
+    <div class="stat"><div class="label">Units on hand</div><div class="value" id="s-units">–</div></div>
+    <div class="stat warn"><div class="label">Low stock</div><div class="value" id="s-low">–</div></div>
+    <div class="stat bad"><div class="label">Out of stock</div><div class="value" id="s-out">–</div></div>
+  </section>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="inv-title">
+      <div class="card-head">
+        <h2 id="inv-title">Inventory</h2>
+        <p>Items at or below 10 units are flagged as low stock.</p>
+      </div>
+      <div class="toolbar">
+        <label class="search">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.8"/><path d="m13.5 13.5 3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <input id="q" type="search" placeholder="Search products or SKUs…" autocomplete="off" aria-label="Search products">
+        </label>
+        <select id="cat" aria-label="Filter by category"><option value="">All categories</option></select>
+        <label class="toggle">
+          <input id="lowOnly" type="checkbox">
+          <span class="track"></span>
+          Low stock only
+          <span class="count" id="lowCount">0</span>
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th data-key="name"><button type="button">Product <span class="arrow">▲</span></button></th>
+              <th data-key="category" class="col-cat"><button type="button">Category <span class="arrow">▲</span></button></th>
+              <th data-key="stock"><button type="button">Stock <span class="arrow">▲</span></button></th>
+              <th data-key="price" class="num"><button type="button">Price <span class="arrow">▲</span></button></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty" hidden><strong>No matching products</strong>Try a different search or clear the filters.</div>
+      </div>
+      <div class="foot" id="foot"></div>
+    </section>
+
+    <aside class="side">
+      <section class="card" aria-labelledby="chart-title">
+        <div class="card-head">
+          <h2 id="chart-title">Stock by category</h2>
+          <p>Total units. Click a bar to filter.</p>
+        </div>
+        <div class="chart" id="chart"></div>
+        <div class="legend">
+          <span><i style="background:var(--bar)"></i>Units on hand</span>
+          <span><i style="background:var(--bar-low)"></i>Has low-stock items</span>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="reorder-title">
+        <div class="card-head">
+          <h2 id="reorder-title">Reorder soon</h2>
+          <p>Lowest stock first.</p>
+        </div>
+        <ul class="alerts" id="alerts"></ul>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script>
+  const LOW = 10;
+
+  const products = [
+    { sku: "ALD-1001", name: "Linen Throw Blanket",       category: "Textiles",  stock: 34, price: 89 },
+    { sku: "ALD-1002", name: "Waffle Bath Towel",         category: "Textiles",  stock: 7,  price: 32 },
+    { sku: "ALD-1003", name: "Wool Floor Cushion",        category: "Textiles",  stock: 18, price: 64 },
+    { sku: "ALD-1004", name: "Stonewashed Duvet Cover",   category: "Textiles",  stock: 0,  price: 149 },
+    { sku: "ALD-2001", name: "Ceramic Pour-Over Set",     category: "Kitchen",   stock: 22, price: 58 },
+    { sku: "ALD-2002", name: "Olive Wood Board",          category: "Kitchen",   stock: 41, price: 46 },
+    { sku: "ALD-2003", name: "Cast Iron Skillet 10\"",    category: "Kitchen",   stock: 5,  price: 72 },
+    { sku: "ALD-2004", name: "Speckled Stoneware Mugs",   category: "Kitchen",   stock: 63, price: 28 },
+    { sku: "ALD-3001", name: "Rattan Pendant Shade",      category: "Lighting",  stock: 9,  price: 118 },
+    { sku: "ALD-3002", name: "Brass Task Lamp",           category: "Lighting",  stock: 14, price: 165 },
+    { sku: "ALD-3003", name: "Beeswax Taper Candles",     category: "Lighting",  stock: 88, price: 18 },
+    { sku: "ALD-4001", name: "Oak Side Table",            category: "Furniture", stock: 6,  price: 245 },
+    { sku: "ALD-4002", name: "Woven Seagrass Stool",      category: "Furniture", stock: 12, price: 135 },
+    { sku: "ALD-4003", name: "Ash Wall Shelf",            category: "Furniture", stock: 0,  price: 95 },
+    { sku: "ALD-5001", name: "Terracotta Planter, Large", category: "Garden",    stock: 27, price: 54 },
+    { sku: "ALD-5002", name: "Hand Trowel & Fork Set",    category: "Garden",    stock: 3,  price: 38 },
+    { sku: "ALD-5003", name: "Galvanised Watering Can",   category: "Garden",    stock: 16, price: 42 },
+    { sku: "ALD-6001", name: "Handwoven Storage Basket",  category: "Decor",     stock: 29, price: 48 },
+    { sku: "ALD-6002", name: "Glazed Bud Vase",           category: "Decor",     stock: 12, price: 24 },
+    { sku: "ALD-6003", name: "Round Jute Rug, 4ft",       category: "Decor",     stock: 19, price: 110 },
+  ];
+
+  const $ = id => document.getElementById(id);
+  const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  const num = new Intl.NumberFormat("en-US");
+  const isLow = p => p.stock <= LOW;
+  const status = p => p.stock === 0 ? "out" : isLow(p) ? "low" : "ok";
+  const statusLabel = { ok: "In stock", low: "Low", out: "Out" };
+  const maxStock = Math.max(...products.map(p => p.stock));
+  const categories = [...new Set(products.map(p => p.category))].sort();
+
+  const state = { q: "", cat: "", lowOnly: false, sort: "name", dir: 1 };
+
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function filtered() {
+    const q = state.q.trim().toLowerCase();
+    return products
+      .filter(p => !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.category.toLowerCase().includes(q))
+      .filter(p => !state.cat || p.category === state.cat)
+      .filter(p => !state.lowOnly || isLow(p))
+      .sort((a, b) => {
+        const x = a[state.sort], y = b[state.sort];
+        return (typeof x === "string" ? x.localeCompare(y) : x - y) * state.dir;
+      });
+  }
+
+  function renderTable() {
+    const list = filtered();
+    $("rows").innerHTML = list.map(p => {
+      const s = status(p);
+      const pct = Math.max(p.stock / maxStock * 100, p.stock ? 4 : 0);
+      return `<tr class="is-${s}">
+        <td><div class="prod">${esc(p.name)}</div><div class="sku">${esc(p.sku)}</div></td>
+        <td class="col-cat"><span class="cat">${esc(p.category)}</span></td>
+        <td><div class="stock">
+          <span class="meter"><span style="width:${pct}%"></span></span>
+          <span class="n">${p.stock}</span>
+          <span class="badge ${s}">${statusLabel[s]}</span>
+        </div></td>
+        <td class="num">${money.format(p.price)}</td>
+      </tr>`;
+    }).join("");
+    $("empty").hidden = list.length > 0;
+    const value = list.reduce((t, p) => t + p.stock * p.price, 0);
+    $("foot").textContent = `Showing ${list.length} of ${products.length} products · ${money.format(value)} retail value`;
+
+    document.querySelectorAll("th[data-key]").forEach(th => {
+      const active = th.dataset.key === state.sort;
+      if (active) th.setAttribute("aria-sort", state.dir === 1 ? "ascending" : "descending");
+      else th.removeAttribute("aria-sort");
+      th.querySelector(".arrow").textContent = active && state.dir === -1 ? "▼" : "▲";
+    });
+  }
+
+  function renderChart() {
+    const totals = categories.map(c => {
+      const items = products.filter(p => p.category === c);
+      return { c, units: items.reduce((t, p) => t + p.stock, 0), low: items.filter(isLow).length };
+    }).sort((a, b) => b.units - a.units);
+    const max = Math.max(...totals.map(t => t.units));
+
+    $("chart").innerHTML = totals.map(t => `
+      <div class="bar-row ${state.cat === t.c ? "active" : state.cat ? "dim" : ""}">
+        <span class="name" title="${esc(t.c)}">${esc(t.c)}</span>
+        <button type="button" class="bar-btn" data-cat="${esc(t.c)}"
+          aria-label="${esc(t.c)}: ${t.units} units${t.low ? `, ${t.low} low-stock` : ""}. Filter table"
+          aria-pressed="${state.cat === t.c}" title="${t.low ? `${t.low} low-stock item${t.low > 1 ? "s" : ""}` : "All healthy"}">
+          <span class="track"><span class="fill ${t.low ? "has-low" : ""}" style="width:0%" data-w="${t.units / max * 100}"></span></span>
+        </button>
+        <span class="val">${num.format(t.units)}</span>
+      </div>`).join("");
+
+    requestAnimationFrame(() => {
+      document.querySelectorAll(".fill").forEach(el => { el.style.width = el.dataset.w + "%"; });
+    });
+  }
+
+  function renderAlerts() {
+    const low = products.filter(isLow).sort((a, b) => a.stock - b.stock);
+    $("alerts").innerHTML = low.map(p => {
+      const s = status(p);
+      return `<li><span class="nm">${esc(p.name)}</span><span class="badge ${s}">${p.stock === 0 ? "Out" : p.stock + " left"}</span></li>`;
+    }).join("");
+  }
+
+  function renderStats() {
+    $("s-products").textContent = products.length;
+    $("s-units").textContent = num.format(products.reduce((t, p) => t + p.stock, 0));
+    $("s-low").textContent = products.filter(p => isLow(p) && p.stock > 0).length;
+    $("s-out").textContent = products.filter(p => p.stock === 0).length;
+    $("lowCount").textContent = products.filter(isLow).length;
+    $("updated").textContent = "Updated " + new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  }
+
+  // Controls
+  $("cat").insertAdjacentHTML("beforeend", categories.map(c => `<option>${esc(c)}</option>`).join(""));
+  $("q").addEventListener("input", e => { state.q = e.target.value; renderTable(); });
+  $("cat").addEventListener("change", e => { state.cat = e.target.value; renderTable(); renderChart(); });
+  $("lowOnly").addEventListener("change", e => { state.lowOnly = e.target.checked; renderTable(); });
+  document.querySelectorAll("th[data-key] button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.parentElement.dataset.key;
+      if (state.sort === key) state.dir *= -1;
+      else { state.sort = key; state.dir = key === "name" || key === "category" ? 1 : -1; }
+      renderTable();
+    });
+  });
+  $("chart").addEventListener("click", e => {
+    const btn = e.target.closest("[data-cat]");
+    if (!btn) return;
+    state.cat = state.cat === btn.dataset.cat ? "" : btn.dataset.cat;
+    $("cat").value = state.cat;
+    renderTable(); renderChart();
+  });
+
+  renderStats();
+  renderTable();
+  renderChart();
+  renderAlerts();
+</script>
+</body>
+</html>
